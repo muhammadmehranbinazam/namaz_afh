@@ -23,24 +23,36 @@ def attend(page, conn, username):
     group = ft.TextField(label="Employee Group", value=result[0] if result else "", disabled=True)
     nm_number = ft.TextField(label="Enter Number of Namza")
     
+    def submit_handler(e):
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM nm_emp_attnd WHERE DOC_DATE=%s AND EMP_CODE=%s",
+                (doc_date, emp_code.value)
+            )
+            existing_record = cursor.fetchone()
+            
+            if existing_record:
+                print("Record already exists for this date and employee code.")
+            else:
+                try:
+                    cursor.execute(
+                        "INSERT INTO nm_emp_attnd (DOC_DATE, GROUP_ID, EMP_CODE, NM_ATTND) VALUES (%s, %s, %s, %s)",
+                        (doc_date, group.value, emp_code.value, nm_number.value)
+                    )
+                    conn.commit()
+                    print("Record inserted successfully.")
+                except mysql.connector.Error as err:
+                    print(f"Error: {err}")
+                finally:
+                    cursor.close()
+    
     submit_button = ft.ElevatedButton(
         text="Submit",
-        on_click=lambda e: get_attend_data(e, conn, emp_code.value)
+        on_click=submit_handler
     )
-    page.add(emp_code, date, group, nm_number, submit_button)
     
-    if conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                "INSERT INTO nm_emp_attnd (DOC_DATE, GROUP_ID, EMP_CODE, NM_ATTND) VALUES (%s, %s, %s, %s)",
-                (doc_date, group.value, emp_code.value, nm_number.value)
-            )
-            conn.commit()
-        except mysql.connector.Error as err:
-            print(f"Error: {err}")
-        finally:
-            cursor.close()
+    page.add(emp_code, date, group, nm_number, submit_button)
 
 def logout_func(e):
     pass
