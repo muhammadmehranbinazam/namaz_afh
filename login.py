@@ -1,24 +1,62 @@
 import flet as ft
 import datetime
 import mysql.connector
-def get_attend_data(e, conn, emp_code):
+conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="namaz"
+    )
+def on_date_change(e):
+    # Callback function to handle date change events
+    from_date = e.control.page.controls[0].controls[0].value
+    to_date = e.control.page.controls[0].controls[1].value
+    print(f"From Date: {from_date}, To Date: {to_date}")
+
+
+from_date_picker = ft.ElevatedButton(
+            "Pick date",
+            icon=ft.icons.CALENDAR_MONTH,
+            on_click=lambda e: ft.page.open(
+                ft.DatePicker(
+                    first_date=datetime.datetime(year=2023, month=10, day=1),
+                    last_date=datetime.datetime(year=2024, month=10, day=1),
+                    on_change=on_date_change,
+                    # on_dismiss=handle_dismissal,
+                )
+            ),
+        )
+to_date_picker = ft.DatePicker(on_change=on_date_change)
+
+
+def get_attend_data(page,conn,username):
     if conn:
-        print(emp_code)
+        print(username)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM nm_emp_group WHERE emp_code=%s", (emp_code,))
+        cursor.execute("SELECT * FROM nm_emp_group WHERE emp_code=%s", (username,))
         result = cursor.fetchone()
+        cursor.close()
         print(result)
+    page.clean()
+    page.add(ft.Column([
+            # page.clean(),
+            ft.Text("From Date"),
+            from_date_picker,
+            ft.Text("To Date"),
+            to_date_picker
+        ]))
 
 def attend(page, conn, username):
+    page.clean()
     emp_code = ft.TextField(label="Enter Employee Code", value=username, disabled=True)
     doc_date = datetime.date.today().strftime("%Y-%m-%d")
     date = ft.TextField(label="Today's Date", value=doc_date, disabled=True)
     
     result = None
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM nm_emp_group WHERE emp_code=%s", (username,))
-        result = cursor.fetchone()
+    # if conn:
+    #     cursor = conn.cursor()
+    #     cursor.execute("SELECT * FROM nm_emp_group WHERE emp_code=%s", (username,))
+    #     result = cursor.fetchone()
     
     group = ft.TextField(label="Employee Group", value=result[0] if result else "", disabled=True)
     nm_number = ft.TextField(label="Enter Number of Namza")
@@ -31,7 +69,6 @@ def attend(page, conn, username):
                 (doc_date, emp_code.value)
             )
             existing_record = cursor.fetchone()
-            
             if existing_record:
                 print("Record already exists for this date and employee code.")
             else:
@@ -57,13 +94,7 @@ def attend(page, conn, username):
 def logout_func(e):
     pass
 
-def page_view(selected_index, page, conn, username):
-    page.clean()  # Clear the existing controls
-    if selected_index == 0:
-        attend(page, conn, username)
-    elif selected_index == 1:
-        page.add(ft.TextField(label="Enter name"))
-    page.update()
+
 
 def main_page(page, conn, username):
     page.navigation_bar = ft.CupertinoNavigationBar(
@@ -82,8 +113,28 @@ def main_page(page, conn, username):
             ),
         ]
     )
+    page.main_page_container = ft.Container(
+    )
     page_view(0, page, conn, username)  # Initialize with the first tab
     page.update()
+
+
+
+
+
+def page_view(selected_index, page, conn, username):
+      # Clear the existing controls
+    if selected_index == 0:
+        # page.clean()
+        page.main_page_container.content=attend(page, conn, username)
+        page.update()
+    elif selected_index == 1:
+        # page.clean()
+        # page.add()
+        page.main_page_container.content = get_attend_data(page,conn,username)
+        # page.update()
+    page.update()
+
 
 def login_page(page: ft.Page, conn):
     def login_func(e):
@@ -91,6 +142,7 @@ def login_page(page: ft.Page, conn):
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM user WHERE username=%s AND password=%s", (user_name.value, password.value))
             result = cursor.fetchone()
+            cursor.close()
             if result and user_name.value == result[0] and int(password.value) == result[1]:
                 page.clean()
                 main_page(page, conn, user_name.value)
@@ -129,11 +181,3 @@ def login_page(page: ft.Page, conn):
     )
 
     page.add(form_container)
-
-# Define the shared TextField variables outside the functions
-c_name = ft.TextField(label="Enter Name")
-reg_user_name = ft.TextField(label="Enter User Name")
-reg_password = ft.TextField(label="Enter Password")
-mobile_number = ft.TextField(label="Enter Mobile Number")
-cnic = ft.TextField(label="Enter CNIC")
-address = ft.TextField(label="Enter Address")
